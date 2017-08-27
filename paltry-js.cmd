@@ -143,7 +143,7 @@ if($Online) {
   npm install
 }
 
-$VsCodeUrl = "https://vscode-update.azurewebsites.net/latest/win32-archive/stable"
+$VsCodeUrl = "https://vscode-update.azurewebsites.net/latest/win32-x64-archive/stable"
 InstallTool -Name "VS Code" -Url $VsCodeUrl -Prefix VSCode*
 Log-Info "Launching VS Code..."
 code --user-data-dir $VsCodeDataFolder --extensions-dir "$VsCodeDataFolder\extensions" .
