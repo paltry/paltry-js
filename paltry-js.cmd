@@ -103,7 +103,7 @@ if($Online) {
   $MinGitRelease = $WebClient.DownloadString($GitReleaseApiUrl) | ConvertFrom-Json |
     Select -Expand assets | Where-Object { $_.name -Match "MinGit.*64-bit.zip" }
 }
-$MinGitUrl = $MinGitRelease.browser_download_url
+$MinGitUrl = $MinGitRelease.browser_download_url -Split " " | Select-Object -First 1
 InstallTool -Name "Git" -Url $MinGitUrl -Prefix MinGit*
 if(!(Test-Path $FullRepoFolder)) {
   Require-Online
