@@ -58,6 +58,43 @@ Function Require-Online {
   }
 }
 
+Function Get-WebClient {
+  $WebClient = New-Object System.Net.WebClient
+  $WebClient.Headers.Add("User-Agent", "PowerShell")
+  return $WebClient
+}
+
+Function DownloadString($Url) {
+  $WebClient = Get-WebClient
+  return $WebClient.DownloadString($Url)
+}
+
+Function DownloadFile($Url, $Path) {
+  $WebClient = Get-WebClient
+  return $WebClient.DownloadFile($Url, $Path)
+}
+
+Function Install7Zip {
+  $7ZipUrl = "http://www.7-zip.org/a/7z1604-x64.msi"
+  $7ZipFile = $7ZipUrl.Split("/") | Select-Object -Last 1
+  $7ZipFolder = [io.path]::GetFileNameWithoutExtension($7ZipFile)
+  $7ZipInstallerFile = "$DownloadsFolder\$7ZipFile"
+  $7ZipInstallerFolder = "$TempFolder\$7ZipFolder"
+  $7ZipInstalledFolder = "$ToolsFolder\$7ZipFolder"
+  if(!(Test-Path $7ZipInstalledFolder)) {
+    if(!(Test-Path $7ZipInstallerFile)) {
+      Require-Online
+      Log-Info "Downloading 7-Zip..."
+      DownloadFile $7ZipUrl $7ZipInstallerFile
+    }
+    Log-Info "Extracting 7-Zip..."
+    msiexec /a "$7ZipInstallerFile" TARGETDIR="$7ZipInstallerFolder" /qn | Out-Null
+    Move-Item "$7ZipInstallerFolder\Files\7-Zip" $7ZipInstalledFolder -Force
+    Remove-Item -Recurse -Force -ErrorAction Ignore $7ZipInstallerFolder
+  }
+  $Env:Path = "$7ZipInstalledFolder;$Env:Path"
+}
+
 Function InstallTool($Name, $Url, $Prefix) {
   if($Online) {
     $ToolFile = $Url.Split("/") | Select-Object -Last 1
@@ -81,11 +118,11 @@ Function InstallTool($Name, $Url, $Prefix) {
     if(!(Test-Path $DownloadedFile)) {
       Require-Online
       Log-Info "Downloading $Name..."
-      $WebClient.DownloadFile($Url, $DownloadedFile)
+      DownloadFile $Url $DownloadedFile
     }
     Log-Info "Extracting $Name..."
     Remove-Item -Recurse -ErrorAction Ignore $ExtractedFolder
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($DownloadedFile, $ExtractedFolder)
+    7z x "$DownloadedFile" -o"$ExtractedFolder" | Out-Null
     $ExtractedContents = Get-ChildItem $ExtractedFolder
     if($ExtractedContents.Length -eq 1 -And $ExtractedContents[0].PSIsContainer) {
       Move-Item $ExtractedContents[0].FullName $InstalledFolder
@@ -98,9 +135,11 @@ Function InstallTool($Name, $Url, $Prefix) {
   $Env:Path = "$ToolBinFolder;$Env:Path"
 }
 
+Install7Zip
+
 $GitReleaseApiUrl = "https://api.github.com/repos/git-for-windows/git/releases/latest"
 if($Online) {
-  $MinGitRelease = $WebClient.DownloadString($GitReleaseApiUrl) | ConvertFrom-Json |
+  $MinGitRelease = DownloadString $GitReleaseApiUrl | ConvertFrom-Json |
     Select -Expand assets | Where-Object { $_.name -Match "MinGit.*64-bit.zip" }
 }
 $MinGitUrl = $MinGitRelease.browser_download_url -Split " " | Select-Object -First 1
